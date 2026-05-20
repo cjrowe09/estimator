@@ -1,0 +1,7 @@
+node_modules/
+.env
+.env.*
+*.log
+ngrok*.log
+Thumbs.db
+.DS_Store

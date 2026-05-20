@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rowe Civil Estimator</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Main navigation">
+        <div class="brand">
+          <div class="brand-mark">R</div>
+          <div>
+            <strong>Rowe Civil</strong>
+            <span>Estimator</span>
+          </div>
+        </div>
+        <nav id="viewNav" class="view-nav"></nav>
+        <div class="sync-panel">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Cloud ready</strong>
+            <span>iPhone + web workflow</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <span class="eyebrow">Configurable estimating factors</span>
+            <h1 id="viewTitle">Estimator Concepts</h1>
+          </div>
+          <div class="top-actions">
+            <button id="saveBtn" type="button">Save estimate</button>
+            <button id="resetBtn" type="button" class="ghost">Reset demo</button>
+          </div>
+        </header>
+
+        <section class="concept-strip" aria-label="GUI concepts">
+          <button class="concept active" data-view="field">1 Field</button>
+          <button class="concept" data-view="desktop">2 Desktop</button>
+          <button class="concept" data-view="resources">3 Resources</button>
+          <button class="concept" data-view="assemblies">4 Assemblies</button>
+          <button class="concept" data-view="review">5 Review</button>
+        </section>
+
+        <section id="appContent" class="content-grid"></section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

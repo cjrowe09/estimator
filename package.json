@@ -1,0 +1,11 @@
+{
+  "name": "rowe-civil-estimator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Civil construction estimating prototype for configurable factors, formulas, crews, resources, and bid quantities.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js",
+    "test": "node estimator_qc_tests.js"
+  }
+}
