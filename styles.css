@@ -663,6 +663,18 @@ td {
   margin-top: 10px;
 }
 
+.line-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  min-width: 210px;
+}
+
+.line-actions button {
+  min-height: 28px;
+  padding: 3px 7px;
+}
+
 code {
   display: block;
   white-space: normal;

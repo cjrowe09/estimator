@@ -21,6 +21,11 @@ const formulaRegistry = {
     expression: "sy * depthIn * asphaltLbPerSYIn / 2000",
     run: ({ quantity, depthIn, asphaltLbPerSYIn }) => quantity * depthIn * asphaltLbPerSYIn / 2000
   },
+  asphalt_sf_depth_to_tons: {
+    label: "Asphalt SF to tons",
+    expression: "sf / 9 * depthIn * asphaltLbPerSYIn / 2000",
+    run: ({ quantity, depthIn, asphaltLbPerSYIn }) => quantity / 9 * depthIn * asphaltLbPerSYIn / 2000
+  },
   tack_gallons: {
     label: "Tack gallons",
     expression: "sy * tackRateGalPerSY",
@@ -40,6 +45,41 @@ const formulaRegistry = {
     label: "Circular pier CY",
     expression: "pi * radiusFt^2 * depthFt / 27 * count",
     run: ({ diameterIn, depthFt, count }) => Math.PI * Math.pow(diameterIn / 24, 2) * depthFt / 27 * count
+  },
+  sealcoat_sy_coats_to_gal: {
+    label: "Sealcoat gallons",
+    expression: "sy * coatCount * galPerSYPerCoat",
+    run: ({ quantity, coatCount, galPerSYPerCoat }) => quantity * coatCount * galPerSYPerCoat
+  },
+  milling_sy_depth_to_tons: {
+    label: "Milling tons",
+    expression: "sy * depthIn * millingsTonsPerSYIn",
+    run: ({ quantity, depthIn, millingsTonsPerSYIn }) => quantity * depthIn * millingsTonsPerSYIn
+  },
+  pipe_trench_assembly: {
+    label: "Pipe trench assembly",
+    expression: "LF pay quantity with trench excavation, bedding, haunch, backfill, spoils, and loads as supporting quantities",
+    run: (input) => trenchQuantities(input)
+  },
+  waterline_trench_assembly: {
+    label: "Waterline trench assembly",
+    expression: "LF pay quantity with trench excavation, bedding, warning tape, tracer wire, testing, spoils, and loads as supporting quantities",
+    run: (input) => trenchQuantities(input)
+  },
+  drainage_structure_assembly: {
+    label: "Drainage structure assembly",
+    expression: "EA structures plus excavation, stone, core, connect, and testing allowances",
+    run: ({ quantity }) => quantity
+  },
+  earthwork_export_swell: {
+    label: "Earthwork export",
+    expression: "entered BCY, LCY = BCY x swell, CCY = BCY x shrink",
+    run: (input) => earthworkQuantities(input)
+  },
+  earthwork_import_backsolve: {
+    label: "Earthwork import",
+    expression: "entered CCY, borrow BCY = CCY / shrink, LCY = BCY x swell",
+    run: (input) => earthworkQuantities(input)
   }
 };
 
@@ -156,22 +196,22 @@ const crewTemplates = [
 ];
 
 const calculatorDefs = [
-  { id: "asphalt", label: "Asphalt paving", category: "Asphalt", unit: "SY", crew: "GH Reed Asphalt 4 Man Crew", defaults: { quantity: 1200, depthIn: 3, mixType: "B Mix", oilType: "64-22", surfaceCondition: "Existing asphalt", pavementSection: "Unclear", tackClarity: "Included", wastePct: 5, tackRateGalPerSY: 0.08, truckingCostPerTon: 12, productionModifier: 1 } },
-  { id: "aggregate", label: "Aggregate base", category: "Aggregate", unit: "SY", crew: "Excavation Pipe Crew", defaults: { quantity: 1200, materialType: "Crusher Run / DGA", depthIn: 6, densityTonsPerCY: 1.55, wastePct: 7, materialCostPerTon: 29.5, truckingCostPerTon: 10 } },
-  { id: "earthwork", label: "Earthwork", category: "Earthwork", unit: "BCY", crew: "Excavation Pipe Crew", defaults: { quantity: 850, operation: "Export", geotechReport: "No", swellFactor: 1.2, shrinkFactor: 0.85, costPerBCY: 18, truckCYPerLoad: 14, rockRisk: "Unclear", dewateringRisk: "Unclear", productionModifier: 1 } },
-  { id: "pipe", label: "Pipe trenching", category: "Underground", unit: "LF", crew: "Excavation Pipe Crew", defaults: { quantity: 430, pipeType: "RCP", pipeDiameterIn: 18, avgDepthFt: 6.5, trenchWidthFt: 3.5, beddingDepthIn: 6, beddingDensityTonsPerCY: 1.45, trenchBackfillSpec: "Unclear", dewateringRisk: "Unclear", rockRisk: "Unclear", wastePct: 7, pipeMaterialCostLF: 9.69, crewCostPerLF: 36.81 } },
+  { id: "asphalt", label: "Asphalt paving", category: "Asphalt", unit: "SY", crew: "GH Reed Asphalt 4 Man Crew", defaults: { quantity: 1200, depthIn: 3, mixType: "B Mix", oilType: "64-22", asphaltLbPerSYIn: 110, asphaltCostPerTon: 97, surfaceCondition: "Existing asphalt", pavementSection: "Unclear", tackClarity: "Included", wastePct: 5, tackRateGalPerSY: 0.08, truckingCostPerTon: 12, truckTonsPerLoad: 20, productionModifier: 1 } },
+  { id: "aggregate", label: "Aggregate base", category: "Aggregate", unit: "SY", crew: "Excavation Pipe Crew", defaults: { quantity: 1200, materialType: "Crusher Run / DGA", depthIn: 6, densityTonsPerCY: 1.55, wastePct: 7, materialCostPerTon: 29.5, truckingCostPerTon: 10, truckTonsPerLoad: 20 } },
+  { id: "earthwork", label: "Earthwork", category: "Earthwork", unit: "BCY", crew: "Excavation Pipe Crew", defaults: { quantity: 850, operation: "Export", geotechReport: "No", swellFactor: 1.2, shrinkFactor: 0.85, costPerBCY: 18, truckCYPerLoad: 14, haulCostPerLoad: 125, rockRisk: "Unclear", dewateringRisk: "Unclear", productionModifier: 1 } },
+  { id: "pipe", label: "Pipe trenching", category: "Underground", unit: "LF", crew: "Excavation Pipe Crew", defaults: { quantity: 430, pipeType: "RCP", pipeDiameterIn: 18, avgDepthFt: 6.5, trenchWidthFt: 3.5, beddingDepthIn: 6, haunchDepthIn: 9, initialBackfillDepthIn: 12, beddingDensityTonsPerCY: 1.45, beddingStoneCostTon: 31.68, spoilSwellFactor: 1.25, truckLooseCYPerLoad: 14, haulCostPerLoad: 125, trenchBackfillSpec: "Unclear", dewateringRisk: "Unclear", rockRisk: "Unclear", wastePct: 7, pipeMaterialCostLF: 9.69, crewCostPerLF: 36.81 } },
   { id: "flatwork", label: "Concrete flatwork", category: "Concrete", unit: "SF", crew: "Concrete Pour Crew", defaults: { quantity: 4500, depthIn: 5, concreteCostCY: 158, wastePct: 5, finishCostSF: 2.9 } },
   { id: "curb", label: "Curb/gutter", category: "Concrete", unit: "LF", crew: "Concrete Pour Crew", defaults: { quantity: 900, sectionSF: 1.18, concreteCostCY: 172, wastePct: 4, productionLFPerDay: 450 } },
   { id: "piers", label: "Piers", category: "Concrete", unit: "EA", crew: "Concrete Pour Crew", defaults: { quantity: 14, diameterIn: 24, depthFt: 8, concreteCostCY: 190, wastePct: 5 } },
-  { id: "lighting", label: "Electrical/site lighting", category: "Electrical", unit: "EA", crew: "Subcontractor", defaults: { quantity: 8, poleBaseEach: 950, fixtureEach: 2800, conduitLF: 600, conduitCostLF: 14 } },
+  { id: "lighting", label: "Electrical/site lighting", category: "Electrical", unit: "EA", crew: "Subcontractor", defaults: { quantity: 8, poleBaseEach: 950, fixtureEach: 2800, conduitLF: 600, conduitCostLF: 14, wireSizeShown: "No" } },
   { id: "demo", label: "Demolition", category: "Demolition", unit: "SY", crew: "Excavation Pipe Crew", defaults: { quantity: 640, depthIn: 6, debrisTonsPerCY: 1.2, disposalCostTon: 22, haulCostTon: 11 } },
   { id: "erosion", label: "Erosion control", category: "Erosion Control", unit: "LF", crew: "Labor Crew", defaults: { quantity: 1200, materialCostLF: 2.29, installCostLF: 1.1, wastePct: 5 } },
-  { id: "striping", label: "Striping", category: "Striping", unit: "LF", crew: "Striping Sub", defaults: { quantity: 2600, paintCostLF: 0.18, installCostLF: 0.54, wastePct: 3 } },
+  { id: "striping", label: "Striping", category: "Striping", unit: "LF", crew: "Striping Sub", defaults: { quantity: 2600, layout: "Missing", paintCostLF: 0.18, installCostLF: 0.54, wastePct: 3 } },
   { id: "sealcoat", label: "Sealcoat / crackfill", category: "Sealcoating", unit: "SY", crew: "Sealcoat Sub", defaults: { quantity: 5200, coatCount: 2, galPerSYPerCoat: 0.14, crackLF: 900, crackLbPerLF: 0.18, routeCracks: "No", wastePct: 8, sealcoatCostGal: 5.75, crackfillCostLb: 1.85, stripingReplacement: "Yes" } },
   { id: "milling", label: "Asphalt milling", category: "Asphalt", unit: "SY", crew: "GH Reed Asphalt 4 Man Crew", defaults: { quantity: 4200, depthIn: 2, millingsTonsPerSYIn: 0.055, haulOff: "Yes", truckTonsPerLoad: 20, millingCostSY: 4.75, haulCostTon: 12, sweepCostSY: 0.35 } },
-  { id: "waterline", label: "Waterline trench", category: "Underground", unit: "LF", crew: "Excavation Pipe Crew", defaults: { quantity: 600, pipeType: "DIP", pipeDiameterIn: 8, avgDepthFt: 5.5, trenchWidthFt: 2.67, beddingDepthIn: 6, beddingDensityTonsPerCY: 1.45, pipeMaterialCostLF: 42, warningTapeLF: 600, tracerWireLF: 600, testingAllowance: 1800, trenchBackfillSpec: "Unclear", dewateringRisk: "Unclear", rockRisk: "Unclear", wastePct: 7 } },
+  { id: "waterline", label: "Waterline trench", category: "Underground", unit: "LF", crew: "Excavation Pipe Crew", defaults: { quantity: 600, pipeType: "DIP", pipeDiameterIn: 8, avgDepthFt: 5.5, trenchWidthFt: 2.67, beddingDepthIn: 6, haunchDepthIn: 4, initialBackfillDepthIn: 12, beddingDensityTonsPerCY: 1.45, beddingStoneCostTon: 31.68, spoilSwellFactor: 1.25, truckLooseCYPerLoad: 14, haulCostPerLoad: 125, pipeMaterialCostLF: 42, warningTapeLF: 600, tracerWireLF: 600, testingAllowance: 1800, trenchBackfillSpec: "Unclear", dewateringRisk: "Unclear", rockRisk: "Unclear", wastePct: 7 } },
   { id: "structures", label: "Drainage structures", category: "Underground", unit: "EA", crew: "Excavation Pipe Crew", defaults: { quantity: 4, structureType: "Catch basin", avgDepthFt: 6, structureCostEach: 3200, excavationCYEach: 8, stoneCYEach: 1.5, connectExistingCount: 1, coreExistingCount: 1, testingAllowance: 750 } },
-  { id: "trucking", label: "Trucking", category: "Universal", unit: "TON", crew: "Truck Fleet", defaults: { quantity: 360, truckTonsPerLoad: 20, looseCYPerLoad: 14, haulDistanceMiles: 12, haulRatePerLoad: 130, roundTripMinutes: 52, dumpFeePerLoad: 0, minimumCharge: 650 } }
+  { id: "trucking", label: "Trucking", category: "Universal", unit: "TON", crew: "Truck Fleet", defaults: { quantity: 360, haulBasis: "Tons", direction: "Export", truckTonsPerLoad: 20, looseCYPerLoad: 14, haulDistanceMiles: 12, haulRatePerLoad: 130, truckingCostPerTon: 12, truckingCostPerHour: 95, roundTripMinutes: 52, dumpFeePerLoad: 0, minimumCharge: 650 } }
 ];
 
 const testProjects = [
@@ -196,12 +236,14 @@ const state = {
   editingResource: false,
   selectedOverheadIndex: null,
   editingOverhead: false,
+  editingEstimateIndex: null,
   project: { name: "Grundy County SR 50 Pipe Install And Ditch Work", phase: "Base Bid", alternate: "None", estimator: "CJR" },
   selectedTestProject: 0,
   factors: [],
   search: "",
   category: "All",
   overheadAnnualDirectCost: 5000000,
+  targetProfitPct: 10,
   estimate: [
     { item: "300", name: "Ditchline", workType: "Earthwork", unit: "LF", qty: 430, crew: "Excavation Pipe Crew", material: "#57 Stone", cost: 21001.8, price: 57000.8 },
     { item: "600", name: "RCP 15-24 Trench and Place", workType: "Pipe", unit: "LF", qty: 430, crew: "Excavation Pipe Crew", material: "12 in N-12 HDPE Storm Pipe", cost: 11462.4, price: 29750 },
@@ -262,6 +304,26 @@ async function loadFactors() {
     maxRecommended: factor.maxRecommended === "" ? null : Number(factor.maxRecommended),
     tags: factor.tags ? factor.tags.split("|").filter(Boolean) : []
   }));
+  applySeedDefaults();
+}
+
+function applySeedDefaults() {
+  const aggregate = calculatorDefs.find((calc) => calc.id === "aggregate");
+  if (aggregate) {
+    aggregate.defaults.densityTonsPerCY = factorValue("crusher_run_tons_per_cy", aggregate.defaults.densityTonsPerCY);
+  }
+  const earthwork = calculatorDefs.find((calc) => calc.id === "earthwork");
+  if (earthwork) {
+    earthwork.defaults.swellFactor = factorValue("common_excavation_swell", earthwork.defaults.swellFactor);
+    earthwork.defaults.shrinkFactor = factorValue("common_fill_shrink", earthwork.defaults.shrinkFactor);
+  }
+  ["pipe", "waterline"].forEach((id) => {
+    const calc = calculatorDefs.find((item) => item.id === id);
+    if (!calc) return;
+    calc.defaults.trenchWidthFt = Number(defaultTrenchWidthFt(calc.defaults.pipeDiameterIn).toFixed(2));
+    calc.defaults.spoilSwellFactor = factorValue("pipe_spoil_swell_common", calc.defaults.spoilSwellFactor);
+    calc.defaults.beddingDensityTonsPerCY = factorValue("clean_57_stone_tons_per_cy", calc.defaults.beddingDensityTonsPerCY);
+  });
 }
 
 function money(value) {
@@ -319,6 +381,79 @@ function overheadPercent() {
   return state.overheadAnnualDirectCost > 0 ? overheadAnnualTotal() / state.overheadAnnualDirectCost * 100 : 0;
 }
 
+function markupPercent() {
+  return overheadPercent() + Number(state.targetProfitPct || 0);
+}
+
+function priceWithMarkup(cost) {
+  return cost * (1 + markupPercent() / 100);
+}
+
+function factorValue(id, fallback) {
+  const factor = factorById(id);
+  return factor && Number.isFinite(Number(factor.factor)) ? Number(factor.factor) : fallback;
+}
+
+function factorByTag(category, tag, fallback) {
+  const factor = state.factors.find((item) => item.category === category && item.tags.includes(tag));
+  return factor && Number.isFinite(Number(factor.factor)) ? Number(factor.factor) : fallback;
+}
+
+function materialUnitCost(name, fallback) {
+  const material = resources.materials.find((item) => item.name === name);
+  return material && Number.isFinite(Number(material.cost)) ? Number(material.cost) : fallback;
+}
+
+function defaultTrenchWidthFt(pipeDiameterIn) {
+  const rounded = Math.round(Number(pipeDiameterIn || 0));
+  return factorValue(`pipe_${rounded}in_default_trench_width_ft`, Number(pipeDiameterIn || 0) / 12 + 2);
+}
+
+function pipeDisplacementCY(input) {
+  const radiusFt = Number(input.pipeDiameterIn || 0) / 24;
+  return Math.PI * Math.pow(radiusFt, 2) * Number(input.quantity || 0) / 27;
+}
+
+function trenchQuantities(input) {
+  const lf = Number(input.quantity || 0);
+  const widthFt = Number(input.trenchWidthFt || defaultTrenchWidthFt(input.pipeDiameterIn));
+  const depthFt = Number(input.avgDepthFt || 0);
+  const beddingDepthIn = Number(input.beddingDepthIn || 0);
+  const haunchDepthIn = Number(input.haunchDepthIn || 0);
+  const initialBackfillDepthIn = Number(input.initialBackfillDepthIn || 0);
+  const excavationCY = lf * widthFt * depthFt / 27;
+  const displacementCY = pipeDisplacementCY(input);
+  const beddingCY = lf * widthFt * beddingDepthIn / 12 / 27;
+  const haunchGrossCY = lf * widthFt * haunchDepthIn / 12 / 27;
+  const haunchCY = Math.max(haunchGrossCY - displacementCY * Math.min(haunchDepthIn / Math.max(Number(input.pipeDiameterIn || 1), 1), 1), 0);
+  const initialBackfillCY = lf * widthFt * initialBackfillDepthIn / 12 / 27;
+  const finalBackfillCY = Math.max(excavationCY - displacementCY - beddingCY - haunchCY - initialBackfillCY, 0);
+  const importedBackfillCY = beddingCY + haunchCY + initialBackfillCY;
+  const spoilBankCY = Math.max(excavationCY - finalBackfillCY, 0);
+  const spoilLooseCY = spoilBankCY * Number(input.spoilSwellFactor || factorValue("pipe_spoil_swell_common", 1.25));
+  const beddingTons = beddingCY * Number(input.beddingDensityTonsPerCY || factorValue("clean_57_stone_tons_per_cy", 1.45));
+  const haunchTons = haunchCY * Number(input.beddingDensityTonsPerCY || factorValue("clean_57_stone_tons_per_cy", 1.45));
+  const backfillTons = initialBackfillCY * Number(input.beddingDensityTonsPerCY || factorValue("clean_57_stone_tons_per_cy", 1.45));
+  const loads = Number(input.truckLooseCYPerLoad || 0) > 0 ? spoilLooseCY / Number(input.truckLooseCYPerLoad) : 0;
+  return { lf, widthFt, depthFt, excavationCY, displacementCY, beddingCY, haunchCY, initialBackfillCY, finalBackfillCY, importedBackfillCY, spoilBankCY, spoilLooseCY, beddingTons, haunchTons, backfillTons, loads };
+}
+
+function earthworkQuantities(input) {
+  const qty = Number(input.quantity || 0);
+  const swell = Number(input.swellFactor || factorValue("common_excavation_swell", 1.2));
+  const shrink = Number(input.shrinkFactor || factorValue("common_fill_shrink", 0.85));
+  if (input.operation === "Import") {
+    const compactedCY = qty;
+    const borrowBankCY = shrink > 0 ? compactedCY / shrink : compactedCY;
+    const looseCY = borrowBankCY * swell;
+    return { payQty: compactedCY, outputUnit: "CCY", bankCY: borrowBankCY, looseCY, compactedCY, loads: looseCY / Number(input.truckCYPerLoad || 1), note: "Import: entered compacted fill, back-solved borrow bank CY and loose haul loads." };
+  }
+  const bankCY = qty;
+  const looseCY = bankCY * swell;
+  const compactedCY = bankCY * shrink;
+  return { payQty: bankCY, outputUnit: "BCY", bankCY, looseCY, compactedCY, loads: looseCY / Number(input.truckCYPerLoad || 1), note: `${input.operation}: entered bank CY, calculated loose haul volume and compacted equivalent.` };
+}
+
 function renameResourceReferences(oldName, newName) {
   if (!oldName || oldName === newName) return;
   crewTemplates.forEach((crew) => {
@@ -348,6 +483,9 @@ function avg(values) {
 }
 
 function asphaltPrice(input) {
+  if (Number(input.asphaltCostPerTon || 0) > 0) return Number(input.asphaltCostPerTon);
+  const resourcePrice = materialUnitCost(`${input.mixType} Asphalt`, 0);
+  if (resourcePrice > 0) return resourcePrice;
   const mix = asphaltMixes[input.mixType];
   return avg(mix.history) + (oilAdjustments[input.oilType] || 0);
 }
@@ -364,45 +502,57 @@ function buildQuantityBreakdown(calc, result) {
   const input = calc.defaults;
   if (calc.id === "asphalt") {
     const mix = asphaltMixes[input.mixType];
-    const tons = input.quantity * input.depthIn * mix.lbPerSYIn / 2000;
+    const lbPerSYIn = Number(input.asphaltLbPerSYIn || mix.lbPerSYIn || factorValue("asphalt_sy_1in_to_tons", 0.055) * 2000);
+    const tons = input.quantity * input.depthIn * lbPerSYIn / 2000;
+    const finalTons = tons * wasteFactor(input.wastePct);
+    const tonsPerLoad = Number(input.truckTonsPerLoad || 20);
     return [
-      qtyRow("Asphalt tons", `${input.quantity} SY @ ${input.depthIn} in`, "SY x depth x lb/SY/in / 2000", tons, input.wastePct, tons * wasteFactor(input.wastePct), "TON", `${input.mixType}, oil ${input.oilType}`),
+      qtyRow("Asphalt tons", `${input.quantity} SY @ ${input.depthIn} in`, "SY x depth x lb/SY/in / 2000", tons, input.wastePct, finalTons, "TON", `${input.mixType}, oil ${input.oilType}, ${lbPerSYIn} lb/SY/in`),
       qtyRow("Tack coat", `${input.quantity} SY`, "SY x gal/SY", input.quantity * input.tackRateGalPerSY, 0, input.quantity * input.tackRateGalPerSY, "GAL", input.surfaceCondition),
-      qtyRow("Truck loads", `${tons * wasteFactor(input.wastePct)} TON`, "tons / truck tons per load", (tons * wasteFactor(input.wastePct)) / 20, 0, (tons * wasteFactor(input.wastePct)) / 20, "LOAD", "Truck size can be adjusted in trucking module")
+      qtyRow("Truck loads", `${finalTons} TON`, "tons / truck tons per load", finalTons / tonsPerLoad, 0, finalTons / tonsPerLoad, "LOAD", `${tonsPerLoad} TON/load`)
     ];
   }
   if (calc.id === "aggregate") {
     const cy = input.quantity * 9 * input.depthIn / 12 / 27;
     const tons = cy * input.densityTonsPerCY;
+    const finalTons = tons * wasteFactor(input.wastePct);
+    const tonsPerLoad = Number(input.truckTonsPerLoad || 20);
     return [
       qtyRow("Base volume", `${input.quantity} SY @ ${input.depthIn} in`, "SY x 9 x depth / 12 / 27", cy, 0, cy, "CY", input.materialType),
-      qtyRow("Purchased aggregate", `${cy} CY`, "CY x tons/CY", tons, input.wastePct, tons * wasteFactor(input.wastePct), "TON", `Density ${input.densityTonsPerCY} TON/CY`),
-      qtyRow("Truck loads", `${tons * wasteFactor(input.wastePct)} TON`, "tons / 20", (tons * wasteFactor(input.wastePct)) / 20, 0, (tons * wasteFactor(input.wastePct)) / 20, "LOAD", "Confirm truck legal payload")
+      qtyRow("Purchased aggregate", `${cy} CY`, "CY x tons/CY", tons, input.wastePct, finalTons, "TON", `Density ${input.densityTonsPerCY} TON/CY`),
+      qtyRow("Truck loads", `${finalTons} TON`, "tons / truck tons per load", finalTons / tonsPerLoad, 0, finalTons / tonsPerLoad, "LOAD", `${tonsPerLoad} TON/load`)
     ];
   }
   if (calc.id === "earthwork") {
-    const bankCY = input.quantity;
-    const looseCY = bankCY * input.swellFactor;
-    const compactedCY = looseCY * input.shrinkFactor;
+    const earth = earthworkQuantities(input);
     return [
-      qtyRow("Bank excavation", `${bankCY} BCY`, "entered quantity", bankCY, 0, bankCY, "BCY", "In-place material"),
-      qtyRow("Loose haul volume", `${bankCY} BCY`, "BCY x swell", looseCY, 0, looseCY, "LCY", `Swell ${input.swellFactor}`),
-      qtyRow("Compacted fill equivalent", `${looseCY} LCY`, "LCY x shrink", compactedCY, 0, compactedCY, "CCY", `Shrink ${input.shrinkFactor}`),
-      qtyRow("Truck loads", `${looseCY} LCY`, "LCY / CY per load", looseCY / input.truckCYPerLoad, 0, looseCY / input.truckCYPerLoad, "LOAD", `${input.truckCYPerLoad} LCY/load`)
+      qtyRow(input.operation === "Import" ? "Required compacted fill" : "Bank excavation", `${input.quantity} ${input.operation === "Import" ? "CCY" : "BCY"}`, "entered pay quantity", earth.payQty, 0, earth.payQty, earth.outputUnit, earth.note),
+      qtyRow("Bank CY", `${earth.payQty} ${earth.outputUnit}`, input.operation === "Import" ? "CCY / shrink" : "entered BCY", earth.bankCY, 0, earth.bankCY, "BCY", `Shrink ${input.shrinkFactor}`),
+      qtyRow("Loose CY", `${earth.bankCY} BCY`, "BCY x swell", earth.looseCY, 0, earth.looseCY, "LCY", `Swell ${input.swellFactor}`),
+      qtyRow("Compacted CY", `${earth.bankCY} BCY`, "BCY x shrink", earth.compactedCY, 0, earth.compactedCY, "CCY", `Shrink ${input.shrinkFactor}`),
+      qtyRow("Truck loads", `${earth.looseCY} LCY`, "LCY / CY per load", earth.loads, 0, earth.loads, "LOAD", `${input.truckCYPerLoad} LCY/load`)
     ];
   }
   if (calc.id === "pipe" || calc.id === "waterline") {
-    const avgDepthFt = input.avgDepthFt || 6;
-    const widthFt = input.trenchWidthFt;
-    const excavationCY = input.quantity * widthFt * avgDepthFt / 27;
-    const beddingCY = input.quantity * widthFt * input.beddingDepthIn / 12 / 27;
-    const beddingTons = beddingCY * input.beddingDensityTonsPerCY;
-    return [
-      qtyRow("Trench excavation", `${input.quantity} LF`, "LF x width x depth / 27", excavationCY, 0, excavationCY, "BCY", `Width ${widthFt} FT, depth ${avgDepthFt} FT`),
-      qtyRow("Pipe bedding", `${input.quantity} LF`, "LF x width x bedding depth / 12 / 27", beddingCY, input.wastePct, beddingCY * wasteFactor(input.wastePct), "CY", `${input.beddingDepthIn} in bedding`),
-      qtyRow("Bedding stone", `${beddingCY} CY`, "CY x tons/CY", beddingTons, input.wastePct, beddingTons * wasteFactor(input.wastePct), "TON", `Density ${input.beddingDensityTonsPerCY} TON/CY`),
-      qtyRow("Warning/tracer", `${input.quantity} LF`, "LF x required runs", input.quantity, 0, input.quantity, "LF", "Confirm warning tape/tracer wire requirements")
+    const q = trenchQuantities(input);
+    const rows = [
+      qtyRow("Pay pipe", `${input.quantity} LF`, "entered LF pay quantity", input.quantity, 0, input.quantity, "LF", `${input.pipeDiameterIn} in ${input.pipeType}`),
+      qtyRow("Trench excavation", `${input.quantity} LF`, "LF x width x depth / 27", q.excavationCY, 0, q.excavationCY, "BCY", `Width ${q.widthFt} FT, depth ${q.depthFt} FT`),
+      qtyRow("Pipe displacement", `${input.quantity} LF`, "pi x radius^2 x LF / 27", q.displacementCY, 0, q.displacementCY, "CY", "Volume occupied by pipe"),
+      qtyRow("Bedding", `${input.quantity} LF`, "LF x width x bedding depth / 12 / 27", q.beddingCY, input.wastePct, q.beddingCY * wasteFactor(input.wastePct), "CY", `${input.beddingDepthIn} in bedding`),
+      qtyRow("Haunch stone", `${input.quantity} LF`, "LF x width x haunch depth less pipe displacement", q.haunchCY, input.wastePct, q.haunchCY * wasteFactor(input.wastePct), "CY", `${input.haunchDepthIn || 0} in haunch zone`),
+      qtyRow("Initial backfill", `${input.quantity} LF`, "LF x width x initial backfill depth / 12 / 27", q.initialBackfillCY, input.wastePct, q.initialBackfillCY * wasteFactor(input.wastePct), "CY", `${input.initialBackfillDepthIn || 0} in above pipe`),
+      qtyRow("Final/native backfill", `${input.quantity} LF`, "excavation - pipe - bedding - haunch - initial", q.finalBackfillCY, 0, q.finalBackfillCY, "CY", "Native reuse allowance, verify spec"),
+      qtyRow("Spoils haul-off", `${q.spoilBankCY} BCY`, "excess bank CY x spoil swell", q.spoilLooseCY, 0, q.spoilLooseCY, "LCY", `Swell ${input.spoilSwellFactor || 1.25}`),
+      qtyRow("Haul-off loads", `${q.spoilLooseCY} LCY`, "LCY / truck loose CY per load", q.loads, 0, q.loads, "LOAD", `${input.truckLooseCYPerLoad || 14} LCY/load`)
     ];
+    if (calc.id === "waterline") {
+      rows.push(
+        qtyRow("Warning tape", `${input.warningTapeLF || input.quantity} LF`, "entered tape LF", input.warningTapeLF || input.quantity, 0, input.warningTapeLF || input.quantity, "LF", "Waterline warning tape"),
+        qtyRow("Tracer wire", `${input.tracerWireLF || input.quantity} LF`, "entered tracer wire LF", input.tracerWireLF || input.quantity, 0, input.tracerWireLF || input.quantity, "LF", "Tracer wire continuity")
+      );
+    }
+    return rows;
   }
   if (calc.id === "flatwork") {
     const cy = input.quantity * input.depthIn / 324;
@@ -464,13 +614,14 @@ function calculate(calc) {
   if (calc.id === "asphalt") {
     const mix = asphaltMixes[input.mixType];
     formulaId = "asphalt_sy_depth_to_tons";
-    baseQty = formulaRegistry[formulaId].run({ ...input, asphaltLbPerSYIn: mix.lbPerSYIn });
+    const lbPerSYIn = Number(input.asphaltLbPerSYIn || mix.lbPerSYIn || factorValue("asphalt_sy_1in_to_tons", 0.055) * 2000);
+    baseQty = formulaRegistry[formulaId].run({ ...input, asphaltLbPerSYIn: lbPerSYIn });
     finalQty = baseQty * (1 + input.wastePct / 100);
     outputUnit = "TON";
     materialCost = finalQty * asphaltPrice(input);
     truckingCost = finalQty * input.truckingCostPerTon;
     crewCost = crewCostPerDay(calc.crew) * (input.quantity / 850) / input.productionModifier;
-    extras.push(["Mix", input.mixType, ""], ["Oil", input.oilType, ""], ["Historical avg", asphaltPrice(input), "per TON"], ["Tack", input.quantity * input.tackRateGalPerSY, "GAL"]);
+    extras.push(["Mix", input.mixType, ""], ["Oil", input.oilType, ""], ["Asphalt price", asphaltPrice(input), "per TON"], ["Truck loads", finalQty / Number(input.truckTonsPerLoad || 20), "LOAD"], ["Tack", input.quantity * input.tackRateGalPerSY, "GAL"]);
   } else if (calc.id === "aggregate") {
     formulaId = "sy_depth_in_to_cy";
     const cy = formulaRegistry[formulaId].run(input);
@@ -480,24 +631,27 @@ function calculate(calc) {
     materialCost = finalQty * input.materialCostPerTon;
     truckingCost = finalQty * input.truckingCostPerTon;
     crewCost = crewCostPerDay(calc.crew) * (input.quantity / 1000);
+    extras.push(["Truck loads", finalQty / Number(input.truckTonsPerLoad || 20), "LOAD"]);
   } else if (calc.id === "earthwork") {
-    const bankCY = input.quantity;
-    const looseCY = bankCY * input.swellFactor;
-    const compactedCY = looseCY * input.shrinkFactor;
-    baseQty = bankCY;
-    finalQty = bankCY;
-    outputUnit = "BCY";
-    crewCost = bankCY * input.costPerBCY / input.productionModifier;
-    extras.push(["Bank CY", bankCY, "BCY"], ["Loose CY", looseCY, "LCY"], ["Compacted CY", compactedCY, "CCY"], ["Truck loads", looseCY / input.truckCYPerLoad, "LOAD"]);
+    const earth = earthworkQuantities(input);
+    formulaId = input.operation === "Import" ? "earthwork_import_backsolve" : "earthwork_export_swell";
+    baseQty = earth.payQty;
+    finalQty = earth.payQty;
+    outputUnit = earth.outputUnit;
+    crewCost = earth.bankCY * input.costPerBCY / input.productionModifier;
+    truckingCost = ["Export", "Import", "Undercut", "Rock excavation"].includes(input.operation) ? earth.loads * Number(input.haulCostPerLoad || 0) : 0;
+    extras.push(["Bank CY", earth.bankCY, "BCY"], ["Loose CY", earth.looseCY, "LCY"], ["Compacted CY", earth.compactedCY, "CCY"], ["Truck loads", earth.loads, "LOAD"]);
   } else if (calc.id === "pipe") {
-    formulaId = "lf_width_depth_to_cy";
-    const beddingCY = formulaRegistry[formulaId].run({ quantity: input.quantity, widthFt: input.trenchWidthFt, depthIn: input.beddingDepthIn });
-    baseQty = beddingCY;
-    finalQty = beddingCY * (1 + input.wastePct / 100);
-    outputUnit = "CY bedding";
-    materialCost = input.quantity * input.pipeMaterialCostLF + finalQty * input.beddingDensityTonsPerCY * 31.68;
+    formulaId = "pipe_trench_assembly";
+    const q = trenchQuantities(input);
+    baseQty = input.quantity;
+    finalQty = input.quantity;
+    outputUnit = "LF";
+    const stoneTons = (q.beddingTons + q.haunchTons + q.backfillTons) * wasteFactor(input.wastePct);
+    materialCost = input.quantity * input.pipeMaterialCostLF + stoneTons * Number(input.beddingStoneCostTon || materialUnitCost("#57 Stone", 31.68));
     crewCost = input.quantity * input.crewCostPerLF;
-    extras.push(["Pipe diameter", input.pipeDiameterIn, "IN"], ["Bedding stone", finalQty * input.beddingDensityTonsPerCY, "TON"]);
+    truckingCost = q.loads * Number(input.haulCostPerLoad || 0);
+    extras.push(["Pipe diameter", input.pipeDiameterIn, "IN"], ["Excavation", q.excavationCY, "BCY"], ["Bedding/haunch/backfill stone", stoneTons, "TON"], ["Spoils", q.spoilLooseCY, "LCY"], ["Haul-off loads", q.loads, "LOAD"]);
   } else if (calc.id === "flatwork") {
     formulaId = "sf_depth_in_to_cy";
     baseQty = formulaRegistry[formulaId].run(input);
@@ -542,7 +696,7 @@ function calculate(calc) {
     crewCost = input.quantity * input.installCostLF;
   } else if (calc.id === "sealcoat") {
     formulaId = "sealcoat_sy_coats_to_gal";
-    baseQty = input.quantity * input.coatCount * input.galPerSYPerCoat;
+    baseQty = formulaRegistry[formulaId].run(input);
     finalQty = baseQty * (1 + input.wastePct / 100);
     outputUnit = "GAL sealer";
     const crackfillLb = input.crackLF * input.crackLbPerLF * (1 + input.wastePct / 100);
@@ -551,7 +705,7 @@ function calculate(calc) {
     extras.push(["Crackfill", crackfillLb, "LB"], ["Crack LF", input.crackLF, "LF"], ["Restripe flag", input.stripingReplacement, ""]);
   } else if (calc.id === "milling") {
     formulaId = "milling_sy_depth_to_tons";
-    baseQty = input.quantity * input.depthIn * input.millingsTonsPerSYIn;
+    baseQty = formulaRegistry[formulaId].run(input);
     finalQty = baseQty;
     outputUnit = "TON millings";
     materialCost = input.quantity * input.millingCostSY + input.quantity * input.sweepCostSY;
@@ -559,15 +713,15 @@ function calculate(calc) {
     extras.push(["Milling area", input.quantity, "SY"], ["Depth", input.depthIn, "IN"], ["Truck loads", finalQty / input.truckTonsPerLoad, "LOAD"]);
   } else if (calc.id === "waterline") {
     formulaId = "waterline_trench_assembly";
-    const excavationCY = input.quantity * input.trenchWidthFt * input.avgDepthFt / 27;
-    const beddingCY = formulaRegistry.lf_width_depth_to_cy.run({ quantity: input.quantity, widthFt: input.trenchWidthFt, depthIn: input.beddingDepthIn });
-    const beddingTons = beddingCY * input.beddingDensityTonsPerCY * (1 + input.wastePct / 100);
-    baseQty = excavationCY;
-    finalQty = excavationCY;
-    outputUnit = "BCY trench";
-    materialCost = input.quantity * input.pipeMaterialCostLF + beddingTons * 31.68 + input.testingAllowance;
+    const q = trenchQuantities(input);
+    const stoneTons = (q.beddingTons + q.haunchTons + q.backfillTons) * wasteFactor(input.wastePct);
+    baseQty = input.quantity;
+    finalQty = input.quantity;
+    outputUnit = "LF";
+    materialCost = input.quantity * input.pipeMaterialCostLF + stoneTons * Number(input.beddingStoneCostTon || materialUnitCost("#57 Stone", 31.68)) + input.testingAllowance;
     crewCost = input.quantity * 28;
-    extras.push(["Bedding", beddingCY, "CY"], ["Bedding stone", beddingTons, "TON"], ["Warning tape", input.warningTapeLF, "LF"], ["Tracer wire", input.tracerWireLF, "LF"], ["Trench safety", input.avgDepthFt > 5 ? "Required" : "Review", ""]);
+    truckingCost = q.loads * Number(input.haulCostPerLoad || 0);
+    extras.push(["Excavation", q.excavationCY, "BCY"], ["Bedding/haunch/backfill stone", stoneTons, "TON"], ["Spoils", q.spoilLooseCY, "LCY"], ["Haul-off loads", q.loads, "LOAD"], ["Warning tape", input.warningTapeLF, "LF"], ["Tracer wire", input.tracerWireLF, "LF"], ["Trench safety", input.avgDepthFt > 5 ? "Required" : "Review", ""]);
   } else if (calc.id === "structures") {
     formulaId = "drainage_structure_assembly";
     baseQty = input.quantity;
@@ -577,11 +731,15 @@ function calculate(calc) {
     crewCost = input.quantity * input.excavationCYEach * 42 + (input.connectExistingCount + input.coreExistingCount) * 450;
     extras.push(["Excavation", input.quantity * input.excavationCYEach, "BCY"], ["Stone", input.quantity * input.stoneCYEach, "CY"], ["Core existing", input.coreExistingCount, "EA"], ["Connect existing", input.connectExistingCount, "EA"]);
   } else if (calc.id === "trucking") {
-    baseQty = input.quantity / input.truckTonsPerLoad;
+    const loadsByBasis = input.haulBasis === "Loose CY" ? input.quantity / input.looseCYPerLoad : input.quantity / input.truckTonsPerLoad;
+    baseQty = loadsByBasis;
     finalQty = baseQty;
     outputUnit = "LOAD";
-    truckingCost = Math.max(finalQty * (input.haulRatePerLoad + input.dumpFeePerLoad), input.minimumCharge);
-    extras.push(["Round trip", input.roundTripMinutes, "MIN"], ["Haul distance", input.haulDistanceMiles, "MI"], ["Tons per load", input.truckTonsPerLoad, "TON"], ["Loose CY/load", input.looseCYPerLoad, "LCY"]);
+    const hourCost = finalQty * input.roundTripMinutes / 60 * input.truckingCostPerHour;
+    const tonCost = input.haulBasis === "Tons" ? input.quantity * input.truckingCostPerTon : 0;
+    const loadCost = finalQty * (input.haulRatePerLoad + input.dumpFeePerLoad);
+    truckingCost = Math.max(loadCost, hourCost, tonCost, input.minimumCharge);
+    extras.push(["Direction", input.direction, ""], ["Round trip", input.roundTripMinutes, "MIN"], ["Haul distance", input.haulDistanceMiles, "MI"], ["Tons per load", input.truckTonsPerLoad, "TON"], ["Loose CY/load", input.looseCYPerLoad, "LCY"], ["Hourly cost basis", hourCost, ""]);
   }
 
   const cost = materialCost + crewCost + truckingCost;
@@ -594,7 +752,7 @@ function calculate(calc) {
     crewCost,
     truckingCost,
     cost,
-    price: cost * 1.18,
+    price: priceWithMarkup(cost),
     breakdown: buildQuantityBreakdown(calc, { formulaId, outputUnit, baseQty, finalQty, materialCost, crewCost, truckingCost, extras }),
     rfiFlags: buildRfiFlags(calc),
     extras
@@ -891,11 +1049,12 @@ function renderOverheadTab() {
       <div class="metric"><span>Annual overhead</span><strong>${money(overheadAnnualTotal())}</strong></div>
       <div class="metric"><span>Annual direct cost base</span><strong>${money(state.overheadAnnualDirectCost)}</strong></div>
       <div class="metric"><span>Overhead recovery</span><strong>${num(overheadPercent(), 2)}%</strong></div>
-      <div class="metric"><span>Current estimate overhead</span><strong>${money(totalCost() * overheadPercent() / 100)}</strong></div>
+      <div class="metric"><span>Total markup</span><strong>${num(markupPercent(), 2)}%</strong></div>
     </div>
     <div style="height:14px"></div>
     <div class="form-grid">
       <label><span>Annual direct cost base</span><input id="annualDirectCostInput" type="number" step="1000" value="${state.overheadAnnualDirectCost}"></label>
+      <label><span>Target profit percent</span><input id="targetProfitPctInput" type="number" step=".25" value="${state.targetProfitPct}"></label>
     </div>
     <div style="height:14px"></div>
     <div class="toolbar resource-toolbar">
@@ -999,7 +1158,7 @@ function renderReview() {
     categoryTotals[line.workType] = (categoryTotals[line.workType] || 0) + line.cost;
   });
   const overhead = totalCost() * overheadPercent() / 100;
-  const targetProfit = (totalCost() + overhead) * .1;
+  const targetProfit = totalCost() * Number(state.targetProfitPct || 0) / 100;
   const recommendedBid = totalCost() + overhead + targetProfit;
   const activeTest = testProjects[state.selectedTestProject] || testProjects[0];
   return `
@@ -1025,6 +1184,8 @@ function renderReview() {
           <div class="result"><span>${category}</span><strong>${money(total)}</strong></div>
         `).join("")}
         <div class="result"><span>Overhead rate</span><strong>${num(overheadPercent(), 2)}%</strong></div>
+        <div class="result"><span>Target profit rate</span><strong>${num(state.targetProfitPct, 2)}%</strong></div>
+        <div class="result"><span>Total markup</span><strong>${num(markupPercent(), 2)}%</strong></div>
         <div class="result"><span>Current bid price</span><strong>${money(totalPrice())}</strong></div>
       </div>
     </aside>
@@ -1080,17 +1241,20 @@ function renderCalcInputs(calc) {
       field("Depth inches", "depthIn", d.depthIn, 'type="number" step=".25"'),
       selectField("Asphalt mix", "mixType", d.mixType, Object.keys(asphaltMixes)),
       selectField("Oil type", "oilType", d.oilType, Object.keys(oilAdjustments)),
+      field("Asphalt lb/SY/in", "asphaltLbPerSYIn", d.asphaltLbPerSYIn, 'type="number" step=".5"'),
+      field("Material $/ton", "asphaltCostPerTon", d.asphaltCostPerTon, 'type="number" step=".01"'),
       selectField("Surface condition", "surfaceCondition", d.surfaceCondition, surfaceConditions),
       selectField("Pavement section", "pavementSection", d.pavementSection, riskOptions),
       selectField("Tack/prime clarity", "tackClarity", d.tackClarity, riskOptions),
       field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'),
       field("Tack gal/SY", "tackRateGalPerSY", d.tackRateGalPerSY, 'type="number" step=".01"'),
       field("Trucking $/ton", "truckingCostPerTon", d.truckingCostPerTon, 'type="number" step=".01"'),
+      field("Truck tons/load", "truckTonsPerLoad", d.truckTonsPerLoad, 'type="number" step=".5"'),
       field("Production modifier", "productionModifier", d.productionModifier, 'type="number" step=".05"')
     ],
-    aggregate: [commonQty, selectField("Material", "materialType", d.materialType, ["Crusher Run / DGA", "#57 Stone", "Clean stone", "Screenings", "Sand", "Riprap"]), field("Depth inches", "depthIn", d.depthIn, 'type="number" step=".25"'), field("Density tons/CY", "densityTonsPerCY", d.densityTonsPerCY, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'), field("Material $/ton", "materialCostPerTon", d.materialCostPerTon, 'type="number" step=".01"'), field("Trucking $/ton", "truckingCostPerTon", d.truckingCostPerTon, 'type="number" step=".01"')],
+    aggregate: [commonQty, selectField("Material", "materialType", d.materialType, ["Crusher Run / DGA", "#57 Stone", "Clean stone", "Screenings", "Sand", "Riprap"]), field("Depth inches", "depthIn", d.depthIn, 'type="number" step=".25"'), field("Density tons/CY", "densityTonsPerCY", d.densityTonsPerCY, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'), field("Material $/ton", "materialCostPerTon", d.materialCostPerTon, 'type="number" step=".01"'), field("Trucking $/ton", "truckingCostPerTon", d.truckingCostPerTon, 'type="number" step=".01"'), field("Truck tons/load", "truckTonsPerLoad", d.truckTonsPerLoad, 'type="number" step=".5"')],
     earthwork: [commonQty, selectField("Operation", "operation", d.operation, ["Stripping", "Cut/fill", "Export", "Import", "Undercut", "Rock excavation", "Fine grading"]), selectField("Geotech report", "geotechReport", d.geotechReport, yesNo), selectField("Rock risk", "rockRisk", d.rockRisk, riskOptions), selectField("Dewatering risk", "dewateringRisk", d.dewateringRisk, riskOptions), field("Swell factor BCY to LCY", "swellFactor", d.swellFactor, 'type="number" step=".01"'), field("Shrink factor LCY to CCY", "shrinkFactor", d.shrinkFactor, 'type="number" step=".01"'), field("Cost $/BCY", "costPerBCY", d.costPerBCY, 'type="number" step=".01"'), field("Truck CY/load", "truckCYPerLoad", d.truckCYPerLoad, 'type="number" step=".5"'), field("Production modifier", "productionModifier", d.productionModifier, 'type="number" step=".05"')],
-    pipe: [commonQty, selectField("Pipe type", "pipeType", d.pipeType, pipeTypes), field("Pipe diameter inches", "pipeDiameterIn", d.pipeDiameterIn, 'type="number"'), field("Average trench depth ft", "avgDepthFt", d.avgDepthFt, 'type="number" step=".1"'), field("Trench width ft", "trenchWidthFt", d.trenchWidthFt, 'type="number" step=".1"'), field("Bedding depth inches", "beddingDepthIn", d.beddingDepthIn, 'type="number" step=".5"'), field("Bedding tons/CY", "beddingDensityTonsPerCY", d.beddingDensityTonsPerCY, 'type="number" step=".01"'), selectField("Backfill spec", "trenchBackfillSpec", d.trenchBackfillSpec, riskOptions), selectField("Rock risk", "rockRisk", d.rockRisk, riskOptions), selectField("Dewatering risk", "dewateringRisk", d.dewateringRisk, riskOptions), field("Pipe material $/LF", "pipeMaterialCostLF", d.pipeMaterialCostLF, 'type="number" step=".01"'), field("Crew $/LF", "crewCostPerLF", d.crewCostPerLF, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"')],
+    pipe: [commonQty, selectField("Pipe type", "pipeType", d.pipeType, pipeTypes), field("Pipe diameter inches", "pipeDiameterIn", d.pipeDiameterIn, 'type="number"'), field("Average trench depth ft", "avgDepthFt", d.avgDepthFt, 'type="number" step=".1"'), field("Trench width ft", "trenchWidthFt", d.trenchWidthFt, 'type="number" step=".1"'), field("Bedding depth inches", "beddingDepthIn", d.beddingDepthIn, 'type="number" step=".5"'), field("Haunch depth inches", "haunchDepthIn", d.haunchDepthIn, 'type="number" step=".5"'), field("Initial backfill inches", "initialBackfillDepthIn", d.initialBackfillDepthIn, 'type="number" step=".5"'), field("Bedding tons/CY", "beddingDensityTonsPerCY", d.beddingDensityTonsPerCY, 'type="number" step=".01"'), field("Stone $/ton", "beddingStoneCostTon", d.beddingStoneCostTon, 'type="number" step=".01"'), field("Spoil swell", "spoilSwellFactor", d.spoilSwellFactor, 'type="number" step=".01"'), field("Truck loose CY/load", "truckLooseCYPerLoad", d.truckLooseCYPerLoad, 'type="number" step=".5"'), field("Haul $/load", "haulCostPerLoad", d.haulCostPerLoad, 'type="number" step=".01"'), selectField("Backfill spec", "trenchBackfillSpec", d.trenchBackfillSpec, riskOptions), selectField("Rock risk", "rockRisk", d.rockRisk, riskOptions), selectField("Dewatering risk", "dewateringRisk", d.dewateringRisk, riskOptions), field("Pipe material $/LF", "pipeMaterialCostLF", d.pipeMaterialCostLF, 'type="number" step=".01"'), field("Crew $/LF", "crewCostPerLF", d.crewCostPerLF, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"')],
     flatwork: [commonQty, field("Depth inches", "depthIn", d.depthIn, 'type="number" step=".25"'), field("Concrete $/CY", "concreteCostCY", d.concreteCostCY, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'), field("Finish cost $/SF", "finishCostSF", d.finishCostSF, 'type="number" step=".01"')],
     curb: [commonQty, field("Section SF/LF", "sectionSF", d.sectionSF, 'type="number" step=".01"'), field("Concrete $/CY", "concreteCostCY", d.concreteCostCY, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'), field("Production LF/day", "productionLFPerDay", d.productionLFPerDay, 'type="number"')],
     piers: [commonQty, field("Diameter inches", "diameterIn", d.diameterIn, 'type="number"'), field("Depth ft", "depthFt", d.depthFt, 'type="number" step=".5"'), field("Concrete $/CY", "concreteCostCY", d.concreteCostCY, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"')],
@@ -1100,9 +1264,9 @@ function renderCalcInputs(calc) {
     striping: [commonQty, selectField("Layout", "layout", d.layout || "Missing", stripingLayouts), field("Paint $/LF", "paintCostLF", d.paintCostLF, 'type="number" step=".01"'), field("Install $/LF", "installCostLF", d.installCostLF, 'type="number" step=".01"'), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"')],
     sealcoat: [commonQty, field("Coat count", "coatCount", d.coatCount, 'type="number" step="1"'), field("Gal/SY/coat", "galPerSYPerCoat", d.galPerSYPerCoat, 'type="number" step=".01"'), field("Crack LF", "crackLF", d.crackLF, 'type="number"'), field("Crack lb/LF", "crackLbPerLF", d.crackLbPerLF, 'type="number" step=".01"'), selectField("Route cracks", "routeCracks", d.routeCracks, yesNo), selectField("Restripe after sealcoat", "stripingReplacement", d.stripingReplacement, yesNo), field("Waste percent", "wastePct", d.wastePct, 'type="number" step=".5"'), field("Sealer $/GAL", "sealcoatCostGal", d.sealcoatCostGal, 'type="number" step=".01"'), field("Crackfill $/LB", "crackfillCostLb", d.crackfillCostLb, 'type="number" step=".01"')],
     milling: [commonQty, field("Depth inches", "depthIn", d.depthIn, 'type="number" step=".25"'), field("Tons/SY/in", "millingsTonsPerSYIn", d.millingsTonsPerSYIn, 'type="number" step=".001"'), selectField("Haul off millings", "haulOff", d.haulOff, yesNo), field("Truck tons/load", "truckTonsPerLoad", d.truckTonsPerLoad, 'type="number" step=".5"'), field("Milling $/SY", "millingCostSY", d.millingCostSY, 'type="number" step=".01"'), field("Haul $/ton", "haulCostTon", d.haulCostTon, 'type="number" step=".01"'), field("Sweep $/SY", "sweepCostSY", d.sweepCostSY, 'type="number" step=".01"')],
-    waterline: [commonQty, selectField("Pipe type", "pipeType", d.pipeType, pipeTypes), field("Pipe diameter inches", "pipeDiameterIn", d.pipeDiameterIn, 'type="number"'), field("Average trench depth ft", "avgDepthFt", d.avgDepthFt, 'type="number" step=".1"'), field("Trench width ft", "trenchWidthFt", d.trenchWidthFt, 'type="number" step=".1"'), field("Bedding depth inches", "beddingDepthIn", d.beddingDepthIn, 'type="number" step=".5"'), selectField("Backfill spec", "trenchBackfillSpec", d.trenchBackfillSpec, riskOptions), selectField("Rock risk", "rockRisk", d.rockRisk, riskOptions), selectField("Dewatering risk", "dewateringRisk", d.dewateringRisk, riskOptions), field("Warning tape LF", "warningTapeLF", d.warningTapeLF, 'type="number"'), field("Tracer wire LF", "tracerWireLF", d.tracerWireLF, 'type="number"'), field("Testing allowance", "testingAllowance", d.testingAllowance, 'type="number" step=".01"')],
+    waterline: [commonQty, selectField("Pipe type", "pipeType", d.pipeType, pipeTypes), field("Pipe diameter inches", "pipeDiameterIn", d.pipeDiameterIn, 'type="number"'), field("Average trench depth ft", "avgDepthFt", d.avgDepthFt, 'type="number" step=".1"'), field("Trench width ft", "trenchWidthFt", d.trenchWidthFt, 'type="number" step=".1"'), field("Bedding depth inches", "beddingDepthIn", d.beddingDepthIn, 'type="number" step=".5"'), field("Haunch depth inches", "haunchDepthIn", d.haunchDepthIn, 'type="number" step=".5"'), field("Initial backfill inches", "initialBackfillDepthIn", d.initialBackfillDepthIn, 'type="number" step=".5"'), field("Bedding tons/CY", "beddingDensityTonsPerCY", d.beddingDensityTonsPerCY, 'type="number" step=".01"'), field("Stone $/ton", "beddingStoneCostTon", d.beddingStoneCostTon, 'type="number" step=".01"'), field("Spoil swell", "spoilSwellFactor", d.spoilSwellFactor, 'type="number" step=".01"'), field("Truck loose CY/load", "truckLooseCYPerLoad", d.truckLooseCYPerLoad, 'type="number" step=".5"'), field("Haul $/load", "haulCostPerLoad", d.haulCostPerLoad, 'type="number" step=".01"'), selectField("Backfill spec", "trenchBackfillSpec", d.trenchBackfillSpec, riskOptions), selectField("Rock risk", "rockRisk", d.rockRisk, riskOptions), selectField("Dewatering risk", "dewateringRisk", d.dewateringRisk, riskOptions), field("Warning tape LF", "warningTapeLF", d.warningTapeLF, 'type="number"'), field("Tracer wire LF", "tracerWireLF", d.tracerWireLF, 'type="number"'), field("Testing allowance", "testingAllowance", d.testingAllowance, 'type="number" step=".01"')],
     structures: [commonQty, selectField("Structure type", "structureType", d.structureType, ["Inlet", "Catch basin", "Manhole", "Headwall", "Endwall", "FES"]), field("Average depth ft", "avgDepthFt", d.avgDepthFt, 'type="number" step=".1"'), field("Structure $/EA", "structureCostEach", d.structureCostEach, 'type="number" step=".01"'), field("Excavation CY/EA", "excavationCYEach", d.excavationCYEach, 'type="number" step=".1"'), field("Stone CY/EA", "stoneCYEach", d.stoneCYEach, 'type="number" step=".1"'), field("Core existing EA", "coreExistingCount", d.coreExistingCount, 'type="number"'), field("Connect existing EA", "connectExistingCount", d.connectExistingCount, 'type="number"'), field("Testing allowance", "testingAllowance", d.testingAllowance, 'type="number" step=".01"')],
-    trucking: [commonQty, field("Truck tons/load", "truckTonsPerLoad", d.truckTonsPerLoad, 'type="number" step=".5"'), field("Loose CY/load", "looseCYPerLoad", d.looseCYPerLoad, 'type="number" step=".5"'), field("Haul distance miles", "haulDistanceMiles", d.haulDistanceMiles, 'type="number" step=".1"'), field("Haul rate/load", "haulRatePerLoad", d.haulRatePerLoad, 'type="number" step=".01"'), field("Round trip minutes", "roundTripMinutes", d.roundTripMinutes, 'type="number"'), field("Dump fee/load", "dumpFeePerLoad", d.dumpFeePerLoad, 'type="number" step=".01"'), field("Minimum charge", "minimumCharge", d.minimumCharge, 'type="number" step=".01"')]
+    trucking: [commonQty, selectField("Haul basis", "haulBasis", d.haulBasis, ["Tons", "Loose CY"]), selectField("Direction", "direction", d.direction, ["Export", "Import"]), field("Truck tons/load", "truckTonsPerLoad", d.truckTonsPerLoad, 'type="number" step=".5"'), field("Loose CY/load", "looseCYPerLoad", d.looseCYPerLoad, 'type="number" step=".5"'), field("Haul distance miles", "haulDistanceMiles", d.haulDistanceMiles, 'type="number" step=".1"'), field("Haul rate/load", "haulRatePerLoad", d.haulRatePerLoad, 'type="number" step=".01"'), field("Trucking $/ton", "truckingCostPerTon", d.truckingCostPerTon, 'type="number" step=".01"'), field("Trucking $/hour", "truckingCostPerHour", d.truckingCostPerHour, 'type="number" step=".01"'), field("Round trip minutes", "roundTripMinutes", d.roundTripMinutes, 'type="number"'), field("Dump fee/load", "dumpFeePerLoad", d.dumpFeePerLoad, 'type="number" step=".01"'), field("Minimum charge", "minimumCharge", d.minimumCharge, 'type="number" step=".01"')]
   };
   return `<div class="form-grid">${(forms[calc.id] || [commonQty]).join("")}</div>`;
 }
@@ -1160,8 +1324,28 @@ function renderRfiFlags(result) {
 
 function renderEstimateTable() {
   return `<div class="table-wrap"><table>
-    <thead><tr><th>Item</th><th>Description</th><th>Work type</th><th>Crew</th><th>Material</th><th>Qty</th><th>UM</th><th>Total cost</th><th>Bid price</th><th>RFI</th></tr></thead>
-    <tbody>${state.estimate.map((line) => `<tr><td>${line.item}</td><td>${line.name}</td><td>${line.workType}</td><td>${line.crew}</td><td>${line.material}</td><td>${num(line.qty)}</td><td>${line.unit}</td><td>${money(line.cost)}</td><td>${money(line.price)}</td><td>${line.rfiCount ? `<span class="pill">${line.rfiCount}</span>` : ""}</td></tr>`).join("")}</tbody>
+    <thead><tr><th>Actions</th><th>Item</th><th>Description</th><th>Work type</th><th>Crew</th><th>Material</th><th>Qty</th><th>UM</th><th>Total cost</th><th>Bid price</th><th>RFI</th><th>Notes</th></tr></thead>
+    <tbody>${state.estimate.map((line, index) => {
+      const editing = state.editingEstimateIndex === index;
+      return `<tr>
+        <td class="line-actions">
+          <button class="${editing ? "primary" : ""} edit-line-btn" data-line-index="${index}" type="button">${editing ? "Done" : "Edit"}</button>
+          <button class="duplicate-line-btn" data-line-index="${index}" type="button">Duplicate</button>
+          <button class="delete-line-btn" data-line-index="${index}" type="button">Delete</button>
+        </td>
+        <td>${editing ? `<input class="estimate-line-input table-input" data-line-index="${index}" data-key="item" value="${line.item}">` : line.item}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input wide-input" data-line-index="${index}" data-key="name" value="${line.name}">` : line.name}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input" data-line-index="${index}" data-key="workType" value="${line.workType}">` : line.workType}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input wide-input" data-line-index="${index}" data-key="crew" value="${line.crew}">` : line.crew}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input wide-input" data-line-index="${index}" data-key="material" value="${line.material}">` : line.material}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input qty-input" data-line-index="${index}" data-key="qty" type="number" step=".01" value="${line.qty}">` : num(line.qty)}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input qty-input" data-line-index="${index}" data-key="unit" value="${line.unit}">` : line.unit}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input" data-line-index="${index}" data-key="cost" type="number" step=".01" value="${line.cost}">` : money(line.cost)}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input" data-line-index="${index}" data-key="price" type="number" step=".01" value="${line.price}">` : money(line.price)}</td>
+        <td>${line.rfiCount ? `<span class="pill">${line.rfiCount}</span>` : ""}</td>
+        <td>${editing ? `<input class="estimate-line-input table-input wide-input" data-line-index="${index}" data-key="notes" value="${line.notes || ""}">` : line.notes || ""}</td>
+      </tr>`;
+    }).join("")}</tbody>
   </table></div>`;
 }
 
@@ -1253,6 +1437,11 @@ function bindDynamicEvents() {
       calc.defaults[input.dataset.key] = input.tagName === "SELECT" ? raw : Number(raw || 0);
       if (calc.id === "asphalt" && input.dataset.key === "mixType") {
         calc.defaults.oilType = asphaltMixes[raw].defaultOil;
+        calc.defaults.asphaltLbPerSYIn = asphaltMixes[raw].lbPerSYIn;
+        calc.defaults.asphaltCostPerTon = materialUnitCost(`${raw} Asphalt`, asphaltPrice({ ...calc.defaults, mixType: raw, asphaltCostPerTon: 0 }));
+      }
+      if (["pipe", "waterline"].includes(calc.id) && input.dataset.key === "pipeDiameterIn") {
+        calc.defaults.trenchWidthFt = Number(defaultTrenchWidthFt(raw).toFixed(2));
       }
       render();
     });
@@ -1281,6 +1470,40 @@ function bindDynamicEvents() {
   });
   document.querySelectorAll(".export-csv-btn").forEach((button) => {
     button.addEventListener("click", exportEstimateCsv);
+  });
+  document.querySelectorAll(".edit-line-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.lineIndex);
+      state.editingEstimateIndex = state.editingEstimateIndex === index ? null : index;
+      renderPreserveScroll();
+    });
+  });
+  document.querySelectorAll(".duplicate-line-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.lineIndex);
+      const line = state.estimate[index];
+      if (!line) return;
+      state.estimate.splice(index + 1, 0, { ...line, item: `${line.item}-COPY`, name: `${line.name} copy` });
+      state.editingEstimateIndex = index + 1;
+      renderPreserveScroll();
+    });
+  });
+  document.querySelectorAll(".delete-line-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.lineIndex);
+      state.estimate.splice(index, 1);
+      state.editingEstimateIndex = null;
+      renderPreserveScroll();
+    });
+  });
+  document.querySelectorAll(".estimate-line-input").forEach((input) => {
+    input.addEventListener("change", () => {
+      const line = state.estimate[Number(input.dataset.lineIndex)];
+      if (!line) return;
+      const numericKeys = ["qty", "cost", "price"];
+      line[input.dataset.key] = numericKeys.includes(input.dataset.key) ? Number(input.value || 0) : input.value;
+      renderPreserveScroll();
+    });
   });
   const categoryFilter = document.getElementById("categoryFilter");
   if (categoryFilter) categoryFilter.addEventListener("change", () => {
@@ -1455,6 +1678,11 @@ function bindDynamicEvents() {
     state.overheadAnnualDirectCost = Number(annualDirectCostInput.value || 0);
     renderPreserveScroll();
   });
+  const targetProfitPctInput = document.getElementById("targetProfitPctInput");
+  if (targetProfitPctInput) targetProfitPctInput.addEventListener("change", () => {
+    state.targetProfitPct = Number(targetProfitPctInput.value || 0);
+    renderPreserveScroll();
+  });
   document.querySelectorAll(".overhead-select-btn").forEach((button) => {
     button.addEventListener("click", () => {
       state.selectedOverheadIndex = Number(button.dataset.overheadIndex);
@@ -1507,45 +1735,70 @@ function bindDynamicEvents() {
   });
 }
 
-document.getElementById("saveBtn").addEventListener("click", () => {
-  localStorage.setItem("rowe-estimator-demo", JSON.stringify({
-    estimate: state.estimate,
+if (typeof module !== "undefined") {
+  module.exports = {
+    formulaRegistry,
     calculatorDefs,
+    state,
     resources,
-    crewTemplates,
     overheadCosts,
-    overheadAnnualDirectCost: state.overheadAnnualDirectCost,
-    project: state.project,
-    selectedTestProject: state.selectedTestProject
-  }));
-});
+    parseCsv,
+    applySeedDefaults,
+    calculate,
+    buildQuantityBreakdown,
+    buildRfiFlags,
+    wasteFactor,
+    defaultTrenchWidthFt,
+    trenchQuantities,
+    earthworkQuantities,
+    markupPercent,
+    priceWithMarkup
+  };
+}
 
-document.getElementById("resetBtn").addEventListener("click", () => {
-  localStorage.removeItem("rowe-estimator-demo");
-  location.reload();
-});
+if (typeof document !== "undefined") {
+  document.getElementById("saveBtn").addEventListener("click", () => {
+    localStorage.setItem("rowe-estimator-demo", JSON.stringify({
+      estimate: state.estimate,
+      calculatorDefs,
+      resources,
+      crewTemplates,
+      overheadCosts,
+      overheadAnnualDirectCost: state.overheadAnnualDirectCost,
+      targetProfitPct: state.targetProfitPct,
+      project: state.project,
+      selectedTestProject: state.selectedTestProject
+    }));
+  });
 
-loadFactors().then(() => {
-  const saved = localStorage.getItem("rowe-estimator-demo");
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    state.estimate = parsed.estimate || state.estimate;
-    state.overheadAnnualDirectCost = parsed.overheadAnnualDirectCost || state.overheadAnnualDirectCost;
-    state.project = parsed.project || state.project;
-    state.selectedTestProject = Number.isInteger(parsed.selectedTestProject) ? parsed.selectedTestProject : state.selectedTestProject;
-    if (parsed.resources) {
-      resources.labor = parsed.resources.labor || resources.labor;
-      resources.equipment = parsed.resources.equipment || resources.equipment;
-      resources.materials = parsed.resources.materials || resources.materials;
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    localStorage.removeItem("rowe-estimator-demo");
+    location.reload();
+  });
+
+  loadFactors().then(() => {
+    const saved = localStorage.getItem("rowe-estimator-demo");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      state.estimate = parsed.estimate || state.estimate;
+      state.overheadAnnualDirectCost = parsed.overheadAnnualDirectCost || state.overheadAnnualDirectCost;
+      state.targetProfitPct = Number.isFinite(Number(parsed.targetProfitPct)) ? Number(parsed.targetProfitPct) : state.targetProfitPct;
+      state.project = parsed.project || state.project;
+      state.selectedTestProject = Number.isInteger(parsed.selectedTestProject) ? parsed.selectedTestProject : state.selectedTestProject;
+      if (parsed.resources) {
+        resources.labor = parsed.resources.labor || resources.labor;
+        resources.equipment = parsed.resources.equipment || resources.equipment;
+        resources.materials = parsed.resources.materials || resources.materials;
+      }
+      if (parsed.crewTemplates) {
+        crewTemplates.splice(0, crewTemplates.length, ...parsed.crewTemplates);
+      }
+      if (parsed.overheadCosts) {
+        overheadCosts.splice(0, overheadCosts.length, ...parsed.overheadCosts);
+      }
     }
-    if (parsed.crewTemplates) {
-      crewTemplates.splice(0, crewTemplates.length, ...parsed.crewTemplates);
-    }
-    if (parsed.overheadCosts) {
-      overheadCosts.splice(0, overheadCosts.length, ...parsed.overheadCosts);
-    }
-  }
-  render();
-}).catch((error) => {
-  document.getElementById("appContent").innerHTML = `<section class="panel"><div class="panel-body"><h2>Could not load CSV</h2><p>${error.message}</p></div></section>`;
-});
+    render();
+  }).catch((error) => {
+    document.getElementById("appContent").innerHTML = `<section class="panel"><div class="panel-body"><h2>Could not load CSV</h2><p>${error.message}</p></div></section>`;
+  });
+}
